@@ -88,3 +88,34 @@ class Product(models.Model):
 
     def __str__(self):
         return f"{self.product_number} - {self.name}"
+
+class ProductClassification(models.Model):
+    product = models.OneToOneField(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="classification",
+    )
+
+    category = models.ForeignKey(
+        "taxonomy.ShopifyCategory",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="product_classifications",
+    )
+
+    confidence = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        null=True,
+        blank=True,
+    )
+
+    explanation = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        category_name = self.category.name if self.category else "Unclassified"
+        return f"{self.product.product_number} → {category_name}"
