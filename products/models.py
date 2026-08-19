@@ -113,6 +113,21 @@ class ProductClassification(models.Model):
 
     explanation = models.TextField(blank=True)
 
+    status = models.CharField(
+        max_length=30,
+        default="manual_review",
+    )
+
+    alternatives = models.JSONField(
+        default=list,
+        blank=True,
+    )
+
+    attributes = models.JSONField(
+        default=list,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

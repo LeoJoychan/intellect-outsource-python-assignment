@@ -2,7 +2,7 @@ import re
 
 from django.db.models import Q
 
-from products.models import Product
+from products.models import Product, ProductClassification
 from taxonomy.models import ShopifyCategory
 
 
@@ -42,7 +42,7 @@ class ProductClassifier:
     def classify(self, product: Product):
         """
         Find candidate Shopify categories, match attributes,
-        and calculate classification confidence.
+        calculate classification confidence, and persist the result.
         """
 
         candidates = self.find_candidates(product)
@@ -51,6 +51,7 @@ class ProductClassifier:
         category = None
         confidence = 0.0
         explanation = "No suitable category candidates found."
+        top_category = None
 
         if candidates:
             top_candidate = candidates[0]
@@ -65,8 +66,6 @@ class ProductClassifier:
                 else 0
             )
 
-            # Confidence is based on how strong the top candidate is
-            # compared with the next-best candidate.
             if top_score > 0:
                 if second_score >= top_score:
                     confidence = 0.5
@@ -106,6 +105,37 @@ class ProductClassifier:
 
             explanation = " ".join(explanation_parts)
 
+        # Candidates after the winner are stored as alternatives.
+        alternatives = [
+            {
+                "category_id": candidate["category_id"],
+                "name": candidate["name"],
+                "full_name": candidate["full_name"],
+                "score": candidate["score"],
+                "matched_terms": candidate["matched_terms"],
+            }
+            for candidate in candidates[1:]
+        ]
+
+        # Confidence below 85% requires manual review.
+        status = (
+            "confident"
+            if confidence >= 0.85
+            else "manual_review"
+        )
+
+        ProductClassification.objects.update_or_create(
+            product=product,
+            defaults={
+                "category": top_category,
+                "confidence": confidence,
+                "explanation": explanation,
+                "status": status,
+                "alternatives": alternatives,
+                "attributes": attribute_matches,
+            },
+        )
+
         return {
             "product_id": product.id,
             "product_number": product.product_number,
@@ -114,6 +144,8 @@ class ProductClassifier:
             "explanation": explanation,
             "candidates": candidates,
             "attributes": attribute_matches,
+            "alternatives": alternatives,
+            "status": status,
         }
 
     def find_candidates(self, product: Product, limit=10):
