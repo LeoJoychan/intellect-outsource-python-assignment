@@ -172,8 +172,30 @@
 
                                 {% for alternative in classification.alternatives %}
 
-                                    <div class="list-group-item">
-                                        {{ alternative.full_name }}
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+
+                                        <div>
+                                            <strong>{{ alternative.full_name }}</strong>
+
+                                            <br>
+
+                                            <small class="text-muted">
+                                                Score: {{ alternative.score }}
+                                            </small>
+                                        </div>
+
+                                        {% if classification.status == "manual_review" %}
+
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-primary approve-category-btn"
+                                                data-category-id="{{ alternative.category_id }}"
+                                            >
+                                                Approve
+                                            </button>
+
+                                        {% endif %}
+
                                     </div>
 
                                 {% endfor %}
@@ -248,36 +270,54 @@
 
 <script>
     document
-        .getElementById("classify-product-btn")
-        .addEventListener("click", async function () {
+        .querySelectorAll(".approve-category-btn")
+        .forEach(function (button) {
 
-            const button = this;
-            const productId = button.dataset.productId;
+            button.addEventListener("click", async function () {
 
-            button.disabled = true;
-            button.textContent = "Classifying...";
+                const categoryId = this.dataset.categoryId;
+                const productId = "{{ product.id }}";
 
-            try {
-                const response = await fetch(
-                    `/api/products/${productId}/classify/`
-                );
-
-                if (!response.ok) {
-                    throw new Error("Classification failed.");
+                if (!confirm("Approve this category?")) {
+                    return;
                 }
 
-                window.location.reload();
+                this.disabled = true;
+                this.textContent = "Approving...";
 
-            } catch (error) {
-                console.error(error);
+                try {
+                    const formData = new FormData();
 
-                button.disabled = false;
-                button.textContent = "Classify Product";
+                    formData.append("category_id", categoryId);
 
-                alert(
-                    "Unable to classify this product. Please try again."
-                );
-            }
+                    const response = await fetch(
+                        `/api/products/${productId}/approve-category/`,
+                        {
+                            method: "POST",
+                            body: formData,
+                            headers: {
+                                "X-CSRFToken": "{{ csrf_token }}"
+                            }
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error("Category approval failed.");
+                    }
+
+                    window.location.reload();
+
+                } catch (error) {
+                    console.error(error);
+
+                    this.disabled = false;
+                    this.textContent = "Approve";
+
+                    alert(
+                        "Unable to approve this category. Please try again."
+                    );
+                }
+            });
         });
 </script>
 

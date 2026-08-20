@@ -146,3 +146,47 @@ def product_detail(request, product_id):
         "products/product_detail.html",
         context,
     )
+
+def approve_category(request, product_id):
+    """
+    Approve a manually selected category for a product.
+    """
+
+    if request.method != "POST":
+        return JsonResponse(
+            {"error": "POST request required."},
+            status=405,
+        )
+
+    product = get_object_or_404(Product, id=product_id)
+
+    classification = get_object_or_404(
+        ProductClassification,
+        product=product,
+    )
+
+    category_id = request.POST.get("category_id")
+
+    if not category_id:
+        return JsonResponse(
+            {"error": "Category is required."},
+            status=400,
+        )
+
+    category = get_object_or_404(
+        ShopifyCategory,
+        shopify_id=category_id,
+    )
+
+    classification.category = category
+    classification.status = "classified"
+    classification.confidence = 1.0
+    classification.save()
+
+    return JsonResponse(
+        {
+            "success": True,
+            "category": category.full_name,
+            "status": classification.status,
+        }
+    )

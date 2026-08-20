@@ -1,6 +1,11 @@
 from django.urls import path
 
-from products.views import classify_product, dashboard, product_detail
+from products.views import (
+    approve_category,
+    classify_product,
+    dashboard,
+    product_detail,
+)
 
 
 urlpatterns = [
@@ -18,5 +23,10 @@ urlpatterns = [
         "products/<int:product_id>/classify/",
         classify_product,
         name="classify-product",
+    ),
+    path(
+        "products/<int:product_id>/approve-category/",
+        approve_category,
+        name="approve-category",
     ),
 ]

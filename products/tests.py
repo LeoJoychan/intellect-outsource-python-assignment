@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.urls import reverse
 
-from products.models import Product
+from products.models import Product, ProductClassification
 from products.services.classifier import ProductClassifier
 from taxonomy.models import ShopifyCategory
 
@@ -122,3 +122,81 @@ class ProductClassifierTests(TestCase):
         self.assertIn("confidence", data)
         self.assertIn("candidates", data)
         self.assertIn("attributes", data)
+
+    def test_approve_category_updates_classification(self):
+        product = Product.objects.create(
+            product_number="TEST-APPROVE",
+            name="Modern Upholstered Armchair",
+            product_category="Living Room",
+            product_sub_category="Sofas and Armchairs",
+            materials="Upholstered Fabric",
+        )
+
+        category = ShopifyCategory.objects.get(
+            shopify_id="test-armchairs"
+        )
+
+        classification = ProductClassification.objects.create(
+            product=product,
+            category=ShopifyCategory.objects.get(
+                shopify_id="test-sofa"
+            ),
+            confidence=0.5,
+            explanation="Needs manual review.",
+            status="manual_review",
+            alternatives=[
+                {
+                    "category_id": category.shopify_id,
+                    "full_name": category.full_name,
+                    "score": 18,
+                }
+            ],
+        )
+
+        response = self.client.post(
+            reverse(
+                "approve-category",
+                kwargs={"product_id": product.id},
+            ),
+            {
+                "category_id": category.shopify_id,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        classification.refresh_from_db()
+
+        self.assertEqual(
+            classification.category,
+            category,
+        )
+        self.assertEqual(
+            classification.status,
+            "classified",
+        )
+        self.assertEqual(
+            classification.confidence,
+            1.0,
+        )
+
+
+    def test_approve_category_requires_post(self):
+        product = Product.objects.create(
+            product_number="TEST-APPROVE-GET",
+            name="Test Armchair",
+        )
+
+        ProductClassification.objects.create(
+            product=product,
+            status="manual_review",
+        )
+
+        response = self.client.get(
+            reverse(
+                "approve-category",
+                kwargs={"product_id": product.id},
+            )
+        )
+
+        self.assertEqual(response.status_code, 405)
