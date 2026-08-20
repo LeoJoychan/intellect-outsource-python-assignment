@@ -73,12 +73,18 @@ class Command(BaseCommand):
                     },
                 )
 
-                if result["category"]:
+                status = (
+                    "manual_review"
+                    if result["confidence"] < 0.8
+                    else "classified"
+                )
+
+                if status == "classified":
                     classified += 1
 
                     self.stdout.write(
                         self.style.SUCCESS(
-                            f"  ✓ {product.product_number} → "
+                            f"  OK: {product.product_number} → "
                             f"{result['category']}"
                         )
                     )
@@ -88,7 +94,7 @@ class Command(BaseCommand):
 
                     self.stdout.write(
                         self.style.WARNING(
-                            f"  ⚠ {product.product_number} → "
+                            f"  REVIEW: {product.product_number} → "
                             "Manual review required"
                         )
                     )
@@ -98,7 +104,7 @@ class Command(BaseCommand):
 
                 self.stdout.write(
                     self.style.ERROR(
-                        f"  ✗ {product.product_number} failed: {exc}"
+                        f"  FAILED: {product.product_number} failed: {exc}"
                     )
                 )
 
