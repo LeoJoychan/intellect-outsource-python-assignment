@@ -1,3 +1,4 @@
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
@@ -284,3 +285,47 @@ class ProductClassifierTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 405)
+
+    def test_batch_classification_continues_after_failure(self):
+        Product.objects.create(
+            product_number="TEST-BATCH-FAIL",
+            name="Product That Fails",
+        )
+
+        Product.objects.create(
+            product_number="TEST-BATCH-SUCCESS",
+            name="Modern Leather Sofa",
+            product_category="Living Room",
+            product_sub_category="Sofas",
+            materials="Leather",
+        )
+
+        original_classify = ProductClassifier.classify
+
+        def fake_classify(self, product):
+            if product.product_number == "TEST-BATCH-FAIL":
+                raise Exception("Simulated classification failure")
+
+            return original_classify(self, product)
+
+        ProductClassifier.classify = fake_classify
+
+        try:
+            call_command(
+                "classify_products",
+                limit=2,
+            )
+        finally:
+            ProductClassifier.classify = original_classify
+
+        self.assertFalse(
+            ProductClassification.objects.filter(
+                product__product_number="TEST-BATCH-FAIL"
+            ).exists()
+        )
+
+        self.assertTrue(
+            ProductClassification.objects.filter(
+                product__product_number="TEST-BATCH-SUCCESS"
+            ).exists()
+        )
