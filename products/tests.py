@@ -107,6 +107,52 @@ class ProductClassifierTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_product_detail_handles_missing_description(self):
+        product = Product.objects.create(
+            product_number="TEST-NO-DESCRIPTION",
+            name="Product Without Description",
+            description="",
+            image_urls=[],
+        )
+
+        response = self.client.get(
+            reverse(
+                "product-detail",
+                kwargs={"product_id": product.id},
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Product Without Description",
+        )
+        self.assertContains(
+            response,
+            "No product images available.",
+        )
+
+
+    def test_product_detail_handles_no_images(self):
+        product = Product.objects.create(
+            product_number="TEST-NO-IMAGES",
+            name="Product Without Images",
+            image_urls=[],
+        )
+
+        response = self.client.get(
+            reverse(
+                "product-detail",
+                kwargs={"product_id": product.id},
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "No product images available.",
+        )
+
     def test_classification_api_returns_404_for_invalid_product(self):
         response = self.client.get(
             reverse(
