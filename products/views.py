@@ -147,6 +147,63 @@ def product_detail(request, product_id):
         context,
     )
 
+def product_api(request, product_id):
+    """
+    Return product information as JSON.
+    """
+
+    product = get_object_or_404(
+        Product.objects.select_related(
+            "classification",
+            "classification__category",
+        ),
+        id=product_id,
+    )
+
+    classification = getattr(
+        product,
+        "classification",
+        None,
+    )
+
+    return JsonResponse(
+        {
+            "id": product.id,
+            "product_number": product.product_number,
+            "model_number": product.model_number,
+            "name": product.name,
+            "description": product.description,
+            "product_category": product.product_category,
+            "product_sub_category": product.product_sub_category,
+            "collection_name": product.collection_name,
+            "color": product.product_color,
+            "materials": product.materials,
+            "image_urls": product.image_urls,
+            "product_url": product.product_url,
+            "classification": (
+                {
+                    "category": (
+                        classification.category.full_name
+                        if classification and classification.category
+                        else None
+                    ),
+                    "confidence": (
+                        float(classification.confidence)
+                        if classification and classification.confidence is not None
+                        else None
+                    ),
+                    "status": (
+                        classification.status
+                        if classification
+                        else None
+                    ),
+                }
+                if classification
+                else None
+            ),
+        }
+    )
+
 def approve_category(request, product_id):
     """
     Approve a manually selected category for a product.
@@ -188,5 +245,37 @@ def approve_category(request, product_id):
             "success": True,
             "category": category.full_name,
             "status": classification.status,
+        }
+    )
+
+def search_categories(request):
+    """
+    Search Shopify categories for manual category selection.
+    """
+
+    query = request.GET.get("q", "").strip()
+
+    if not query:
+        return JsonResponse(
+            {
+                "categories": [],
+            }
+        )
+
+    categories = (
+        ShopifyCategory.objects
+        .filter(full_name__icontains=query)
+        .order_by("full_name")[:20]
+    )
+
+    return JsonResponse(
+        {
+            "categories": [
+                {
+                    "id": category.shopify_id,
+                    "name": category.full_name,
+                }
+                for category in categories
+            ]
         }
     )

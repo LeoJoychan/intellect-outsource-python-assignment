@@ -104,7 +104,63 @@
                     </dl>
 
                 </div>
+
             </div>
+
+            <!-- Product Images -->
+
+            {% if product.image_urls %}
+
+                <div class="card shadow-sm mt-4">
+
+                    <div class="card-header">
+                        Product Images
+                    </div>
+
+                    <div class="card-body">
+
+                        <div class="row g-3">
+
+                            {% for image_url in product.image_urls %}
+
+                                <div class="col-6">
+
+                                    <img
+                                        src="{{ image_url }}"
+                                        alt="{{ product.name }}"
+                                        class="img-fluid rounded border"
+                                        style="width: 100%; height: 220px; object-fit: contain;"
+                                    >
+
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            {% else %}
+
+                <div class="card shadow-sm mt-4">
+
+                    <div class="card-header">
+                        Product Images
+                    </div>
+
+                    <div class="card-body">
+
+                        <p class="text-muted mb-0">
+                            No product images available.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            {% endif %}
 
         </div>
 
@@ -209,6 +265,41 @@
                             </p>
 
                         {% endif %}
+
+                        <hr>
+
+                        <h6>Change Category</h6>
+
+                        <p class="text-muted">
+                            Search the Shopify taxonomy and select a different category.
+                        </p>
+
+                        <div class="input-group mb-3">
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="category-search-input"
+                                placeholder="Search categories..."
+                            >
+
+                            <button
+                                type="button"
+                                class="btn btn-outline-primary"
+                                id="category-search-btn"
+                            >
+                                Search
+                            </button>
+                        </div>
+
+                        <div
+                            id="category-search-error"
+                            class="alert alert-danger d-none"
+                        ></div>
+
+                        <div
+                            id="category-search-results"
+                            class="list-group"
+                        ></div>
 
 
                         <h6>Matched Attributes</h6>
@@ -319,6 +410,182 @@
                 }
             });
         });
+        const searchInput = document.getElementById(
+            "category-search-input"
+        );
+
+        const searchButton = document.getElementById(
+            "category-search-btn"
+        );
+
+        const searchResults = document.getElementById(
+            "category-search-results"
+        );
+
+        const searchError = document.getElementById(
+            "category-search-error"
+        );
+
+
+        if (searchButton) {
+
+            searchButton.addEventListener("click", async function () {
+
+                const query = searchInput.value.trim();
+
+                searchResults.innerHTML = "";
+                searchError.classList.add("d-none");
+
+                if (!query) {
+                    searchError.textContent =
+                        "Please enter a category to search.";
+
+                    searchError.classList.remove("d-none");
+
+                    return;
+                }
+
+                searchButton.disabled = true;
+                searchButton.textContent = "Searching...";
+
+                try {
+
+                    const response = await fetch(
+                        `/api/categories/search/?q=${encodeURIComponent(query)}`
+                    );
+
+                    if (!response.ok) {
+                        throw new Error("Category search failed.");
+                    }
+
+                    const data = await response.json();
+
+                    if (!data.categories.length) {
+
+                        searchResults.innerHTML = `
+                            <div class="list-group-item text-muted">
+                                No categories found.
+                            </div>
+                        `;
+
+                        return;
+                    }
+
+                    data.categories.forEach(function (category) {
+
+                        const item = document.createElement("div");
+
+                        item.className =
+                            "list-group-item d-flex justify-content-between align-items-center";
+
+                        item.innerHTML = `
+                            <div class="me-3">
+                                <strong>${category.name}</strong>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary"
+                            >
+                                Select
+                            </button>
+                        `;
+
+                        const selectButton =
+                            item.querySelector("button");
+
+                        selectButton.addEventListener(
+                            "click",
+                            async function () {
+
+                                if (
+                                    !confirm(
+                                        "Change the product category to this category?"
+                                    )
+                                ) {
+                                    return;
+                                }
+
+                                selectButton.disabled = true;
+                                selectButton.textContent = "Saving...";
+
+                                try {
+
+                                    const formData = new FormData();
+
+                                    formData.append(
+                                        "category_id",
+                                        category.id
+                                    );
+
+                                    const productId =
+                                        "{{ product.id }}";
+
+                                    const response = await fetch(
+                                        `/api/products/${productId}/approve-category/`,
+                                        {
+                                            method: "POST",
+                                            body: formData,
+                                            headers: {
+                                                "X-CSRFToken":
+                                                    "{{ csrf_token }}"
+                                            }
+                                        }
+                                    );
+
+                                    if (!response.ok) {
+                                        throw new Error(
+                                            "Category update failed."
+                                        );
+                                    }
+
+                                    window.location.reload();
+
+                                } catch (error) {
+
+                                    console.error(error);
+
+                                    selectButton.disabled = false;
+                                    selectButton.textContent = "Select";
+
+                                    alert(
+                                        "Unable to change the category. Please try again."
+                                    );
+                                }
+                            }
+                        );
+
+                        searchResults.appendChild(item);
+                    });
+
+                } catch (error) {
+
+                    console.error(error);
+
+                    searchError.textContent =
+                        "Unable to search categories. Please try again.";
+
+                    searchError.classList.remove("d-none");
+
+                } finally {
+
+                    searchButton.disabled = false;
+                    searchButton.textContent = "Search";
+                }
+            });
+
+
+            searchInput.addEventListener(
+                "keydown",
+                function (event) {
+
+                    if (event.key === "Enter") {
+                        event.preventDefault();
+                        searchButton.click();
+                    }
+                }
+            );
+        }
 </script>
 
 </body>

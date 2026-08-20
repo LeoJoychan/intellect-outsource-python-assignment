@@ -97,6 +97,44 @@ class ProductClassifierTests(TestCase):
             ),
         )
 
+    def test_product_detail_returns_404_for_invalid_product(self):
+        response = self.client.get(
+            reverse(
+                "product-detail",
+                kwargs={"product_id": 999999},
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_classification_api_returns_404_for_invalid_product(self):
+        response = self.client.get(
+            reverse(
+                "classify-product",
+                kwargs={"product_id": 999999},
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_approve_category_returns_404_for_invalid_category(self):
+        product = Product.objects.create(
+            product_number="TEST-INVALID-CATEGORY",
+            name="Test Product",
+        )
+
+        response = self.client.post(
+            reverse(
+                "approve-category",
+                kwargs={"product_id": product.id},
+            ),
+            {
+                "category_id": "does-not-exist",
+            },
+        )
+
+        self.assertEqual(response.status_code, 404)
+
     def test_classification_api_returns_json(self):
         product = Product.objects.create(
             product_number="TEST-API",
