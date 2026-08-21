@@ -360,6 +360,53 @@
 </main>
 
 <script>
+    const classifyButton = document.getElementById(
+        "classify-product-btn"
+    );
+
+    if (classifyButton) {
+        classifyButton.addEventListener(
+            "click",
+            async function () {
+
+                const productId = this.dataset.productId;
+
+                if (!confirm("Reclassify this product?")) {
+                    return;
+                }
+
+                this.disabled = true;
+                this.textContent = "Classifying...";
+
+                try {
+                    const response = await fetch(
+                        `/products/${productId}/classify/`,
+                        {
+                            method: "GET",
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error(
+                            "Product classification failed."
+                        );
+                    }
+
+                    window.location.reload();
+
+                } catch (error) {
+                    console.error(error);
+
+                    this.disabled = false;
+                    this.textContent = "Reclassify Product";
+
+                    alert(
+                        "Unable to reclassify this product. Please try again."
+                    );
+                }
+            }
+        );
+    }
     document
         .querySelectorAll(".approve-category-btn")
         .forEach(function (button) {
