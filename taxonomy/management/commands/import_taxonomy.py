@@ -103,6 +103,7 @@ class Command(BaseCommand):
         ShopifyAttribute.objects.bulk_create(
             objects,
             batch_size=1000,
+            ignore_conflicts=True,
         )
 
         self.stdout.write(
@@ -148,6 +149,7 @@ class Command(BaseCommand):
         ShopifyAttributeValue.objects.bulk_create(
             objects,
             batch_size=1000,
+            ignore_conflicts=True,
         )
 
         self.stdout.write(
@@ -203,8 +205,8 @@ class Command(BaseCommand):
         ShopifyCategory.objects.bulk_create(
             category_objects,
             batch_size=1000,
+            ignore_conflicts=True,
         )
-
         category_map = {
             category.shopify_id: category
             for category in ShopifyCategory.objects.all()

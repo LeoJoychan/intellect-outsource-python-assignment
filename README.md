@@ -1,4 +1,4 @@
-# Intellect Outsource – Shopify Product Classifier
+# Intellect Outsource - Shopify Product Classifier
 
 A Django application for importing products, matching them against the Shopify product taxonomy, classifying products with confidence scores, and sending uncertain classifications to manual review.
 
@@ -11,7 +11,7 @@ A Django application for importing products, matching them against the Shopify p
 - Confidence scoring
 - Manual-review workflow
 - Alternative category suggestions
-- Product attributes matching
+- Product attribute matching
 - Product dashboard
 - Product detail page
 - Classification API
@@ -25,16 +25,16 @@ A Django application for importing products, matching them against the Shopify p
 ## Requirements
 
 - Python 3.13+
-- Django
+- Django 6.0.8
 - MySQL
 - Python virtual environment
-- Project data files
+- Product and Shopify taxonomy data files
 
 ## Setup
 
-Create and activate a virtual environment.
-
 ### Windows PowerShell
+
+Create and activate a virtual environment:
 
 ```powershell
 python -m venv venv
