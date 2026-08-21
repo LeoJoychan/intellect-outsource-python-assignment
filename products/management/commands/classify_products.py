@@ -16,14 +16,20 @@ class Command(BaseCommand):
             help="Process only the first N products",
         )
 
+        parser.add_argument(
+            "--reclassify",
+            action="store_true",
+            help="Reclassify products that already have a classification",
+        )
+
     def handle(self, *args, **options):
         limit = options["limit"]
+        reclassify = options["reclassify"]
 
-        products = (
-            Product.objects
-            .exclude(classification__isnull=False)
-            .order_by("id")
-        )
+        products = Product.objects.order_by("id")
+
+        if not reclassify:
+            products = products.exclude(classification__isnull=False)
 
         if limit:
             products = products[:limit]
