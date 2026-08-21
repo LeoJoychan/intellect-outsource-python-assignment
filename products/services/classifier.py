@@ -217,6 +217,21 @@ class ProductClassifier:
 
         search_terms.update(name_type_terms)
 
+        # Use the description as a secondary product-type signal.
+        # This allows products with generic names to still be classified
+        # when the description clearly identifies the product type.
+        description_terms = self.extract_terms(
+            normalized_fields.get("description", "")
+        )
+
+        description_type_terms = {
+            term
+            for term in description_terms
+            if term in product_type_terms
+        }
+
+        search_terms.update(description_type_terms)
+
         # Use the supplier sub-category only when it contains a useful
         # product-type term. Broad terms such as "decor" and "living"
         # are intentionally ignored for candidate discovery.

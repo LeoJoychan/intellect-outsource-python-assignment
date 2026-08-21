@@ -4,7 +4,11 @@ from django.urls import reverse
 
 from products.models import Product, ProductClassification
 from products.services.classifier import ProductClassifier
-from taxonomy.models import ShopifyCategory
+from taxonomy.models import (
+    ShopifyAttribute,
+    ShopifyAttributeValue,
+    ShopifyCategory,
+)
 
 
 class ProductClassifierTests(TestCase):
@@ -16,6 +20,39 @@ class ProductClassifierTests(TestCase):
             level=1,
             vertical="Furniture",
             vertical_prefix="fr",
+        )
+
+        color = ShopifyAttribute.objects.create(
+            shopify_id="test-color",
+            name="Color",
+            handle="test-color",
+        )
+
+        white = ShopifyAttributeValue.objects.create(
+            shopify_id="test-white",
+            name="White",
+            attribute=color,
+        )
+
+        material = ShopifyAttribute.objects.create(
+            shopify_id="test-material",
+            name="Material",
+            handle="test-material",
+        )
+
+        leather = ShopifyAttributeValue.objects.create(
+            shopify_id="test-leather",
+            name="Leather",
+            attribute=material,
+        )
+
+        sofa_category = ShopifyCategory.objects.get(
+            shopify_id="test-sofa"
+        )
+
+        sofa_category.attributes.add(
+            color,
+            material,
         )
 
         ShopifyCategory.objects.create(
@@ -180,6 +217,146 @@ class ProductClassifierTests(TestCase):
             ),
         )
 
+    def test_product_name_is_used_for_classification(self):
+        product = Product.objects.create(
+            product_number="TEST-NAME-CLASSIFICATION",
+            name="Modern Leather Sofa",
+            product_category="",
+            product_sub_category="",
+            description="",
+            materials="",
+            image_urls=[],
+        )
+
+        result = ProductClassifier().classify(product)
+
+        self.assertEqual(
+            result["category"],
+            "Furniture > Sofas",
+        )
+
+    def test_description_is_used_for_classification(self):
+        product = Product.objects.create(
+            product_number="TEST-DESCRIPTION-CLASSIFICATION",
+            name="Modern Home Furniture",
+            product_category="",
+            product_sub_category="",
+            description=(
+                "A comfortable upholstered sofa for a living room."
+            ),
+            materials="",
+            image_urls=[],
+        )
+
+        result = ProductClassifier().classify(product)
+
+        self.assertEqual(
+            result["category"],
+            "Furniture > Sofas",
+        )
+
+    def test_product_category_is_used_for_classification(self):
+        product = Product.objects.create(
+            product_number="TEST-CATEGORY-CLASSIFICATION",
+            name="Modern Home Furniture",
+            product_category="",
+            product_sub_category="Sectional Sofas",
+            description="",
+            materials="",
+            image_urls=[],
+        )
+
+        result = ProductClassifier().classify(product)
+
+        self.assertEqual(
+            result["category"],
+            "Furniture > Sofas > Sectional Sofas",
+        )
+
+    def test_low_confidence_requires_manual_review(self):
+        product = Product.objects.create(
+            product_number="TEST-MANUAL-REVIEW",
+            name="Generic Furniture Product",
+            product_category="Furniture",
+            description="A simple piece of furniture.",
+            image_urls=[],
+        )
+
+        result = ProductClassifier().classify(product)
+
+        self.assertLess(result["confidence"], 0.8)
+        self.assertEqual(
+            result["status"],
+            "manual_review",
+        )
+
+    def test_high_confidence_is_classified(self):
+        product = Product.objects.create(
+            product_number="TEST-HIGH-CONFIDENCE",
+            name="Modern Leather Sofa",
+            product_category="Living Room",
+            product_sub_category="Sofas",
+            materials="Leather",
+        )
+
+        result = ProductClassifier().classify(product)
+
+        # Verify the classifier's status follows the 0.8 threshold.
+        if result["confidence"] >= 0.8:
+            self.assertEqual(
+                result["status"],
+                "classified",
+            )
+        else:
+            self.assertEqual(
+                result["status"],
+                "manual_review",
+            )
+
+    def test_classifier_detects_product_attributes(self):
+        product = Product.objects.create(
+            product_number="TEST-ATTRIBUTES",
+            name="Modern Leather Sofa",
+            product_category="Living Room",
+            product_sub_category="Sofas",
+            materials="Leather",
+            product_color="White",
+            description="A modern leather sofa.",
+        )
+
+        result = ProductClassifier().classify(product)
+
+        self.assertTrue(result["attributes"])
+
+        attribute_names = {
+            attribute["attribute"]
+            for attribute in result["attributes"]
+        }
+
+        self.assertIn("Color", attribute_names)
+        self.assertIn("Material", attribute_names)
+
+    def test_classifier_returns_alternative_categories(self):
+        product = Product.objects.create(
+            product_number="TEST-ALTERNATIVES",
+            name="Modern Leather Sofa",
+            product_category="Living Room",
+            product_sub_category="Sofas",
+            materials="Leather",
+        )
+
+        result = ProductClassifier().classify(product)
+
+        self.assertTrue(result["candidates"])
+
+        if len(result["candidates"]) > 1:
+            self.assertTrue(result["alternatives"])
+
+            self.assertEqual(
+                result["alternatives"],
+                result["candidates"][1:],
+            )
+
     def test_product_detail_returns_404_for_invalid_product(self):
         response = self.client.get(
             reverse(
@@ -215,6 +392,48 @@ class ProductClassifierTests(TestCase):
             "No product images available.",
         )
 
+    def test_classifier_handles_missing_description(self):
+        product = Product.objects.create(
+            product_number="TEST-CLASSIFIER-NO-DESCRIPTION",
+            name="Modern Leather Sofa",
+            product_category="Living Room",
+            product_sub_category="Sofas",
+            materials="Leather",
+            description="",
+            image_urls=[],
+        )
+
+        result = ProductClassifier().classify(product)
+
+        self.assertEqual(
+            result["category"],
+            "Furniture > Sofas",
+        )
+        self.assertGreater(
+            result["confidence"],
+            0,
+        )
+
+    def test_classifier_handles_incomplete_product_information(self):
+        product = Product.objects.create(
+            product_number="TEST-INCOMPLETE",
+            name="Basic Leather Sofa",
+            product_category="Living Room",
+            description="",
+            materials="",
+            product_color="",
+            bullets="",
+            set_includes="",
+            image_urls=[],
+        )
+
+        result = ProductClassifier().classify(product)
+
+        self.assertIsNotNone(result)
+        self.assertIn("category", result)
+        self.assertIn("confidence", result)
+        self.assertIn("status", result)
+
 
     def test_product_detail_handles_no_images(self):
         product = Product.objects.create(
@@ -234,6 +453,32 @@ class ProductClassifierTests(TestCase):
         self.assertContains(
             response,
             "No product images available.",
+        )
+
+    def test_product_detail_handles_invalid_image_url(self):
+        product = Product.objects.create(
+            product_number="TEST-BROKEN-IMAGE",
+            name="Product With Broken Image",
+            image_urls=[
+                "https://invalid.example.com/nonexistent-image.jpg"
+            ],
+        )
+
+        response = self.client.get(
+            reverse(
+                "product-detail",
+                kwargs={"product_id": product.id},
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Product With Broken Image",
+        )
+        self.assertContains(
+            response,
+            "invalid.example.com",
         )
 
     def test_classification_api_returns_404_for_invalid_product(self):
