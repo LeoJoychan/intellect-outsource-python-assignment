@@ -42,6 +42,33 @@ class ProductClassifierTests(TestCase):
             vertical_prefix="hg",
         )
 
+        ShopifyCategory.objects.create(
+            shopify_id="test-sectional-sofas",
+            name="Sectional Sofas",
+            full_name="Furniture > Sofas > Sectional Sofas",
+            level=2,
+            vertical="Furniture",
+            vertical_prefix="fr",
+        )
+
+        ShopifyCategory.objects.create(
+            shopify_id="test-loveseat-sofas",
+            name="Loveseat Sofas",
+            full_name="Furniture > Sofas > Loveseat Sofas",
+            level=2,
+            vertical="Furniture",
+            vertical_prefix="fr",
+        )
+
+        ShopifyCategory.objects.create(
+            shopify_id="test-chaise-sofas",
+            name="Chaise Longue Sofas",
+            full_name="Furniture > Sofas > Chaise Longue Sofas",
+            level=2,
+            vertical="Furniture",
+            vertical_prefix="fr",
+        )
+
     def test_sofa_is_classified_as_sofa(self):
         product = Product.objects.create(
             product_number="TEST-SOFA",
@@ -59,6 +86,61 @@ class ProductClassifierTests(TestCase):
         )
         self.assertGreater(result["confidence"], 0)
         self.assertTrue(result["candidates"])
+
+    def test_sectional_is_classified_as_sectional_sofa(self):
+        product = Product.objects.create(
+            product_number="TEST-SECTIONAL",
+            name="Modern Fabric Sectional Sofa",
+            product_category="Living Room",
+            product_sub_category="Sectional Sofas",
+            materials="Fabric",
+        )
+
+        result = ProductClassifier().classify(product)
+
+        self.assertEqual(
+            result["category"],
+            "Furniture > Sofas > Sectional Sofas",
+        )
+
+    def test_loveseat_is_classified_as_loveseat_sofa(self):
+        product = Product.objects.create(
+            product_number="TEST-LOVESEAT",
+            name="Modern Fabric Loveseat Sofa",
+            product_category="Living Room",
+            product_sub_category="Loveseats",
+            materials="Fabric",
+        )
+
+        result = ProductClassifier().classify(product)
+
+        self.assertEqual(
+            result["category"],
+            "Furniture > Sofas > Loveseat Sofas",
+        )
+
+    def test_chaise_is_classified_as_chaise_sofa(self):
+        product = Product.objects.create(
+            product_number="TEST-CHAISE",
+            name="Marina Outdoor Patio Teak Single Chaise",
+            product_category="Outdoor Furniture",
+            product_sub_category="Outdoor Seating",
+            materials="Teak",
+            description=(
+                "Luxurious solid teak wood outdoor seating "
+                "for relaxing with friends and family."
+            ),
+        )
+
+        result = ProductClassifier().classify(product)
+
+        self.assertIn(
+            result["category"],
+            {
+                "Furniture > Chairs > Chaises > Chaise Longues",
+                "Furniture > Sofas > Chaise Longue Sofas",
+            },
+        )
 
     def test_armchair_is_classified_as_armchair(self):
         product = Product.objects.create(

@@ -34,6 +34,8 @@ class Command(BaseCommand):
 
         df = pd.read_excel(file_path)
 
+        df.columns = df.columns.astype(str).str.strip()
+
         if limit:
             df = df.head(limit)
 

@@ -193,6 +193,7 @@ class ProductClassifier:
             "desks",
             "cabinet",
             "cabinets",
+            "chaise",
             "shelf",
             "shelves",
             "bin",
@@ -240,6 +241,7 @@ class ProductClassifier:
             "sofa bed",
             "sectional sofa",
             "loveseat sofa",
+            "chaise longue",
         }
 
         product_text = " ".join(normalized_fields.values())
@@ -498,6 +500,67 @@ class ProductClassifier:
                 matched_terms.add(product_type)
 
         # ---------------------------------------------------------
+        # 3b. Strongly prefer explicit product subtypes.
+        #
+        # If the product name explicitly identifies a subtype such as
+        # chaise, sectional, loveseat, or sofa bed, prefer categories
+        # containing that same subtype and penalize conflicting
+        # subtypes.
+        # ---------------------------------------------------------
+        subtype_terms = {
+            "chaise": {
+                "chaise",
+                "chaise longue",
+            },
+            "sectional": {
+                "sectional",
+                "sectional sofa",
+                "sectional sofas",
+            },
+            "loveseat": {
+                "loveseat",
+                "loveseat sofa",
+                "loveseat sofas",
+            },
+            "sofa bed": {
+                "sofa bed",
+                "sofa beds",
+                "sleeper sofa",
+                "sleeper sofas",
+            },
+        }
+
+        product_name_lower = product_fields.get("name", "").lower()
+
+        detected_subtypes = {
+            subtype
+            for subtype in subtype_terms
+            if subtype in product_name_lower
+        }
+
+        for subtype in detected_subtypes:
+            category_has_subtype = any(
+                variant in category_lower
+                for variant in subtype_terms[subtype]
+            )
+
+            if category_has_subtype:
+                score += 80
+                matched_terms.add(subtype)
+
+        conflicting_subtypes = {
+            "chaise": {"sectional", "loveseat", "sofa bed"},
+            "sectional": {"chaise", "loveseat", "sofa bed"},
+            "loveseat": {"chaise", "sectional", "sofa bed"},
+            "sofa bed": {"chaise", "sectional", "loveseat"},
+        }
+
+        for subtype in detected_subtypes:
+            for conflicting in conflicting_subtypes.get(subtype, set()):
+                if conflicting in category_lower:
+                    score -= 80
+
+        # ---------------------------------------------------------
         # 4. Penalize categories that describe a different product.
         # ---------------------------------------------------------
         for excluded_term in self.EXCLUDED_CATEGORY_TERMS:
@@ -523,6 +586,8 @@ class ProductClassifier:
             "outdoor",
             "baby",
             "toddler",
+            "floor",
+            "lounger",
         }
 
         for qualifier in unsupported_qualifiers:
